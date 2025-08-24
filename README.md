@@ -1,1 +1,1 @@
-A RISC-V 32I Implementation in SystemVerilog
+A RISC-V 32I processor core implementation in SystemVerilog
