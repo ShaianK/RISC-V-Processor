@@ -4,7 +4,7 @@ module instruction_mem_tb;
     reg [31:0] read_addr;
     wire [31:0] instruction;
 
-    instruction_mem uut (
+    instruction_mem dut (
         .read_addr(read_addr),
         .instruction(instruction)
     );

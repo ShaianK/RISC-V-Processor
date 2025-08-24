@@ -9,7 +9,7 @@ module pc_tb;
     wire [31:0] pc;
 
     // Instantiate the Unit Under Test (UUT)
-    pc uut (
+    pc dut (
         .clk(clk),
         .rst(rst),
         .branch(branch),
