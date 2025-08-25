@@ -1,84 +1,122 @@
-`include "pc.sv"
-`include "instruction_mem.sv"
-`include "register_file.sv"
-`include "imm_gen.sv"
-`include "control_unit.sv"
-`include "alu_control.sv"
-`include "alu.sv"
-`include "data_mem.sv"
-
-module datapath(
+module datapath (
     input clk,
     input rst
 );
-    // Program Counter wires
-    wire [31:0] pc_out;               // Current PC value
-    wire [31:0] pc_next;              // Next PC value
-    wire branch;                      // Branch control signal
 
-    // Instruction fetch wires
-    wire [31:0] instruction;          // Current instruction
+    // IF/ID pipeline register wires
+    wire [31:0] if_id_pc, if_id_instruction;
 
-    // Register File wires
-    wire [4:0] rs1, rs2, rd;          // Register specifiers
-    wire [31:0] reg_data1, reg_data2; // Register read data
-    wire RegWrite;                    // Register write enable
+    // ID/EX pipeline register wires
+    wire id_ex_RegWrite, id_ex_MemtoReg, id_ex_MemRead, id_ex_MemWrite, id_ex_ALUSrc, id_ex_Branch;
+    wire [1:0] id_ex_ALUOp;
+    wire [31:0] id_ex_pc, id_ex_reg_data1, id_ex_reg_data2, id_ex_imm;
+    wire [4:0] id_ex_rs1, id_ex_rs2, id_ex_rd;
+    wire [2:0] id_ex_funct3;
+    wire [6:0] id_ex_funct7;
 
-    // Immediate Generator wires
-    wire [31:0] imm_out;              // Decoded immediate value
+    // EX/MEM pipeline register wires
+    wire ex_mem_RegWrite, ex_mem_MemtoReg, ex_mem_MemRead, ex_mem_MemWrite;
+    wire [31:0] ex_mem_alu_result, ex_mem_reg_data2;
+    wire [4:0] ex_mem_rd;
+    wire ex_mem_zero;
 
-    // ALU wires
-    wire [31:0] alu_in2, alu_result;  // ALU input and result
-    wire [3:0] alu_control;           // ALU operation select
-    wire zero;                        // ALU zero flag
+    // MEM/WB pipeline register wires
+    wire mem_wb_RegWrite, mem_wb_MemtoReg;
+    wire [31:0] mem_wb_mem_read_data, mem_wb_alu_result;
+    wire [4:0] mem_wb_rd;
 
-    // Data Memory wires
-    wire [31:0] mem_read_data;       // Data memory read data
-    wire MemRead, MemWrite, MemtoReg;// Data memory control signals
+    wire [31:0] pc_out;
+    wire branch, id_ex_branch;
+    wire [31:0] instruction;
 
-    // Control Unit wires
-    wire ALUSrc;                     // ALU source select
-    wire [1:0] ALUOp;                // ALU operation type
+    // Instruction decode
+    wire [4:0] rs1, rs2, rd;
+    wire [31:0] reg_data1, reg_data2;
+    wire RegWrite, MemtoReg, MemRead, MemWrite, ALUSrc;
+    
+    // ALU
+    wire [1:0] ALUOp;
+    wire [31:0] imm_out;
+    wire [3:0] alu_control;
+    wire [31:0] alu_in2, alu_result;
+    wire zero;
+    
+    // Memory
+    wire [31:0] mem_read_data;
 
-    // PC: Handles program counter update and branching
+    // Forwarding Unit
+    wire [1:0] forwardA, forwardB;
+    wire [31:0] alu_data1, alu_data2_pre, store_data;
+    
+    forwarding_unit FWU(
+        .id_ex_rs1(id_ex_rs1),
+        .id_ex_rs2(id_ex_rs2),
+        .ex_mem_RegWrite(ex_mem_RegWrite),
+        .ex_mem_rd(ex_mem_rd),
+        .mem_wb_RegWrite(mem_wb_RegWrite),
+        .mem_wb_rd(mem_wb_rd),
+        .forwardA(forwardA),
+        .forwardB(forwardB)
+    );
+
+    // ALU input multiplexers with forwarding
+    assign alu_data1 = (forwardA == 2'b10) ? ex_mem_alu_result :                                            // Forward from EX/MEM
+                       (forwardA == 2'b01) ? (mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result) : // Forward from MEM/WB
+                       id_ex_reg_data1;                                                                     // No forwarding
+                       
+    assign alu_data2_pre = (forwardB == 2'b10) ? ex_mem_alu_result :                                            // Forward from EX/MEM
+                           (forwardB == 2'b01) ? (mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result) : // Forward from MEM/WB
+                           id_ex_reg_data2;                                                                     // No forwarding
+                           
+    // Store data forwarding (same logic as ALU input 2)
+    assign store_data = (forwardB == 2'b10) ? ex_mem_alu_result :                                            // Forward from EX/MEM
+                        (forwardB == 2'b01) ? (mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result) : // Forward from MEM/WB
+                        id_ex_reg_data2;                                                                     // No forwarding
+
+    // IF stage
     pc PC(
         .clk(clk),
         .rst(rst),
-        .branch(branch & zero), // Take branch if branch instruction and ALU zero
-        .pc_next(pc_out + imm_out), // Branch target
+        .branch(id_ex_Branch & zero),
+        .pc_next(id_ex_pc + id_ex_imm),
         .pc(pc_out)
     );
-
-    // Instruction Memory: Fetches instruction at PC
     instruction_mem IMEM(
         .read_addr(pc_out),
         .instruction(instruction)
     );
 
-    // Register File: Reads rs1, rs2 and writes rd
-    assign rs1 = instruction[19:15];
-    assign rs2 = instruction[24:20];
-    assign rd  = instruction[11:7];
+    // IF/ID pipeline register
+    IF_ID if_id_reg(
+        .clk(clk),
+        .rst(rst),
+        .flush(id_ex_Branch & zero),
+        .pc_in(pc_out),
+        .instruction_in(instruction),
+        .pc_out(if_id_pc),
+        .instruction_out(if_id_instruction)
+    );
+
+    // ID stage
+    assign rs1 = if_id_instruction[19:15];
+    assign rs2 = if_id_instruction[24:20];
+    assign rd  = if_id_instruction[11:7];
     regfile RF(
         .clk(clk),
-        .RegWrite(RegWrite),
+        .RegWrite(mem_wb_RegWrite),
         .read_reg_1(rs1),
         .read_reg_2(rs2),
-        .write_register(rd),
-        .write_data(MemtoReg ? mem_read_data : alu_result), // Write-back mux
+        .write_register(mem_wb_rd),
+        .write_data(mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result),
         .read_data_1(reg_data1),
         .read_data_2(reg_data2)
     );
-
-    // Immediate Generator: Decodes/sign extends immediate from instruction
     imm_gen IMMGEN(
-        .instruction(instruction),
+        .instruction(if_id_instruction),
         .imm_out(imm_out)
     );
-
-    // Control Unit: Decodes opcode to generate control signals
     control_unit CTRLU(
-        .opcode(instruction[6:0]),
+        .opcode(if_id_instruction[6:0]),
         .Branch(branch),
         .MemRead(MemRead),
         .MemWrite(MemWrite),
@@ -88,32 +126,107 @@ module datapath(
         .ALUOp(ALUOp)
     );
 
-    // ALU Control: Decodes funct3 & funct7 and ALUOp to select ALU operation
-    alu_control ALUCTRL(
-        .funct7(instruction[31:25]),
-        .funct3(instruction[14:12]),
-        .aluop(ALUOp),
-        .alu_control(alu_control)
+    // ID/EX pipeline register
+    ID_EX id_ex_reg(
+        .clk(clk),
+        .rst(rst),
+        .flush(id_ex_Branch & zero),
+        .RegWrite_in(RegWrite),
+        .MemtoReg_in(MemtoReg),
+        .MemRead_in(MemRead),
+        .MemWrite_in(MemWrite),
+        .ALUSrc_in(ALUSrc),
+        .Branch_in(branch),
+        .ALUOp_in(ALUOp),
+        .pc_in(if_id_pc),
+        .reg_data1_in(reg_data1),
+        .reg_data2_in(reg_data2),
+        .imm_in(imm_out),
+        .rs1_in(rs1),
+        .rs2_in(rs2),
+        .rd_in(rd),
+        .funct3_in(if_id_instruction[14:12]),
+        .funct7_in(if_id_instruction[31:25]),
+        .RegWrite_out(id_ex_RegWrite),
+        .MemtoReg_out(id_ex_MemtoReg),
+        .MemRead_out(id_ex_MemRead),
+        .MemWrite_out(id_ex_MemWrite),
+        .ALUSrc_out(id_ex_ALUSrc),
+        .Branch_out(id_ex_Branch),
+        .ALUOp_out(id_ex_ALUOp),
+        .pc_out(id_ex_pc),
+        .reg_data1_out(id_ex_reg_data1),
+        .reg_data2_out(id_ex_reg_data2),
+        .imm_out(id_ex_imm),
+        .rs1_out(id_ex_rs1),
+        .rs2_out(id_ex_rs2),
+        .rd_out(id_ex_rd),
+        .funct3_out(id_ex_funct3),
+        .funct7_out(id_ex_funct7)
     );
 
-    // ALU: Performs arithmetic/logic operations
-    assign alu_in2 = ALUSrc ? imm_out : reg_data2; // ALU input mux
+    // EX stage
+    alu_control ALUCTRL(
+        .funct7(id_ex_funct7),
+        .funct3(id_ex_funct3),
+        .aluop(id_ex_ALUOp),
+        .alu_control(alu_control)
+    );
+    assign alu_in2 = id_ex_ALUSrc ? id_ex_imm : alu_data2_pre;
     alu ALU(
-        .data1(reg_data1),
+        .data1(alu_data1),
         .data2(alu_in2),
         .aluop(alu_control),
         .alu_result(alu_result),
         .zero(zero)
     );
 
-    // Data Memory: Loads/stores data
+    // EX/MEM pipeline register
+    EX_MEM ex_mem_reg(
+        .clk(clk),
+        .rst(rst),
+        .RegWrite_in(id_ex_RegWrite),
+        .MemtoReg_in(id_ex_MemtoReg),
+        .MemRead_in(id_ex_MemRead),
+        .MemWrite_in(id_ex_MemWrite),
+        .alu_result_in(alu_result),
+        .reg_data2_in(store_data),
+        .rd_in(id_ex_rd),
+        .zero_in(zero),
+        .RegWrite_out(ex_mem_RegWrite),
+        .MemtoReg_out(ex_mem_MemtoReg),
+        .MemRead_out(ex_mem_MemRead),
+        .MemWrite_out(ex_mem_MemWrite),
+        .alu_result_out(ex_mem_alu_result),
+        .reg_data2_out(ex_mem_reg_data2),
+        .rd_out(ex_mem_rd),
+        .zero_out(ex_mem_zero)
+    );
+
+    // MEM stage
     data_mem DMEM(
         .clk(clk),
-        .MemWrite(MemWrite),
-        .MemRead(MemRead),
-        .addr(alu_result),
-        .write_data(reg_data2),
+        .MemWrite(ex_mem_MemWrite),
+        .MemRead(ex_mem_MemRead),
+        .addr(ex_mem_alu_result),
+        .write_data(ex_mem_reg_data2),
         .read_data(mem_read_data)
+    );
+
+    // MEM/WB pipeline register
+    MEM_WB mem_wb_reg(
+        .clk(clk),
+        .rst(rst),
+        .RegWrite_in(ex_mem_RegWrite),
+        .MemtoReg_in(ex_mem_MemtoReg),
+        .mem_read_data_in(mem_read_data),
+        .alu_result_in(ex_mem_alu_result),
+        .rd_in(ex_mem_rd),
+        .RegWrite_out(mem_wb_RegWrite),
+        .MemtoReg_out(mem_wb_MemtoReg),
+        .mem_read_data_out(mem_wb_mem_read_data),
+        .alu_result_out(mem_wb_alu_result),
+        .rd_out(mem_wb_rd)
     );
 
 endmodule
