@@ -26,6 +26,7 @@ module datapath (
     wire [4:0] mem_wb_rd;
 
     wire [31:0] pc_out;
+    wire pc_enable;
     wire branch, id_ex_branch;
     wire [31:0] instruction;
 
@@ -40,6 +41,9 @@ module datapath (
     wire [3:0] alu_control;
     wire [31:0] alu_in2, alu_result;
     wire zero;
+
+    // Reg file
+    wire [31:0] rf_read_data1, rf_read_data2;
     
     // Memory
     wire [31:0] mem_read_data;
@@ -47,6 +51,9 @@ module datapath (
     // Forwarding Unit
     wire [1:0] forwardA, forwardB;
     wire [31:0] alu_data1, alu_data2_pre, store_data;
+    
+    // Hazard Detection Unit
+    wire stall, nop;
     
     forwarding_unit FWU(
         .id_ex_rs1(id_ex_rs1),
@@ -57,6 +64,18 @@ module datapath (
         .mem_wb_rd(mem_wb_rd),
         .forwardA(forwardA),
         .forwardB(forwardB)
+    );
+    
+    hazard_detection_unit HDU(
+        .if_id_rs1(rs1),
+        .if_id_rs2(rs2),
+        .id_ex_MemRead(id_ex_MemRead),
+        .id_ex_RegWrite(id_ex_RegWrite),
+        .id_ex_rd(id_ex_rd),
+        .ex_mem_RegWrite(ex_mem_RegWrite),
+        .ex_mem_rd(ex_mem_rd),
+        .stall(stall),
+        .nop(nop)
     );
 
     // ALU input multiplexers with forwarding
@@ -74,9 +93,11 @@ module datapath (
                         id_ex_reg_data2;                                                                     // No forwarding
 
     // IF stage
+    assign pc_enable = ~stall;
     pc PC(
         .clk(clk),
         .rst(rst),
+        .pc_enable(pc_enable),
         .branch(id_ex_Branch & zero),
         .pc_next(id_ex_pc + id_ex_imm),
         .pc(pc_out)
@@ -91,6 +112,7 @@ module datapath (
         .clk(clk),
         .rst(rst),
         .flush(id_ex_Branch & zero),
+        .stall(stall),
         .pc_in(pc_out),
         .instruction_in(instruction),
         .pc_out(if_id_pc),
@@ -100,7 +122,7 @@ module datapath (
     // ID stage
     assign rs1 = if_id_instruction[19:15];
     assign rs2 = if_id_instruction[24:20];
-    assign rd  = if_id_instruction[11:7];
+    assign rd  = if_id_instruction[11:7];    
     regfile RF(
         .clk(clk),
         .RegWrite(mem_wb_RegWrite),
@@ -108,9 +130,18 @@ module datapath (
         .read_reg_2(rs2),
         .write_register(mem_wb_rd),
         .write_data(mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result),
-        .read_data_1(reg_data1),
-        .read_data_2(reg_data2)
+        .read_data_1(rf_read_data1),
+        .read_data_2(rf_read_data2)
     );
+    
+    // Forward from MEM/WB stage if needed
+    assign reg_data1 = (mem_wb_RegWrite && (mem_wb_rd == rs1) && (mem_wb_rd != 0)) ?
+                       (mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result) :
+                       rf_read_data1;
+                       
+    assign reg_data2 = (mem_wb_RegWrite && (mem_wb_rd == rs2) && (mem_wb_rd != 0)) ?
+                       (mem_wb_MemtoReg ? mem_wb_mem_read_data : mem_wb_alu_result) :
+                       rf_read_data2;
     imm_gen IMMGEN(
         .instruction(if_id_instruction),
         .imm_out(imm_out)
@@ -131,6 +162,7 @@ module datapath (
         .clk(clk),
         .rst(rst),
         .flush(id_ex_Branch & zero),
+        .nop(nop),
         .RegWrite_in(RegWrite),
         .MemtoReg_in(MemtoReg),
         .MemRead_in(MemRead),
