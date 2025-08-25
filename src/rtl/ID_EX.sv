@@ -2,6 +2,7 @@ module ID_EX (
     input         clk,
     input         rst,
     input         flush,
+    input         nop,
     
     // Control signals
     input         RegWrite_in,
@@ -43,7 +44,7 @@ module ID_EX (
 );
 
     always @(posedge clk or posedge rst) begin
-        if (rst || flush) begin
+        if (rst || flush || nop) begin
             RegWrite_out <= 0;
             MemtoReg_out <= 0;
             MemRead_out  <= 0;
