@@ -7,8 +7,15 @@ module alu_control (
 
     always_comb begin
         case (aluop)
-            2'b00: alu_control = 4'b0010; // ADD (for lw/sw)
-            2'b01: alu_control = 4'b0011; // SUB (for beq)
+            2'b00: begin // I-type immediate instructions
+                case (funct3)
+                    3'b000: alu_control = 4'b0010; // ADDI
+                    3'b111: alu_control = 4'b0000; // ANDI  
+                    3'b110: alu_control = 4'b0001; // ORI
+                    default: alu_control = 4'b0010; // Default to ADD for LW/SW
+                endcase
+            end
+            2'b01: alu_control = 4'b0011; // SUB 
             2'b10: begin // R-type
                 case ({funct7, funct3})
                     {7'b0000000, 3'b000}: alu_control = 4'b0010; // ADD
