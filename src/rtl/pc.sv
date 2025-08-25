@@ -1,7 +1,7 @@
-// Keeps tracks the current instruction's location and increments or jumps to the next
 module pc (
     input clk,
     input rst,
+    input pc_enable,
     input branch,
     input [31:0] pc_next,
     output reg [31:0] pc
@@ -11,7 +11,7 @@ module pc (
         if (rst) begin
             pc <= 32'b0;    
         end
-        else begin
+        else if (pc_enable) begin
             pc <= (branch) ? pc_next : pc + 4;
         end
     end
