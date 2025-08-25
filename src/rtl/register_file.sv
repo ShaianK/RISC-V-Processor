@@ -20,10 +20,8 @@ module regfile(
         end
     end
 
-    always_comb begin
-        read_data_1 = x[read_reg_1];
-        read_data_2 = x[read_reg_2];
-    end
+    assign read_data_1 = x[read_reg_1];
+    assign read_data_2 = x[read_reg_2];
 
     always @(posedge clk) begin
         if (RegWrite && write_register != 0) begin
