@@ -65,6 +65,15 @@ module control_unit(
                 ALUSrc = 0;
                 ALUOp = 2'b00;
             end
+            7'b0110111: begin // U-Type (LUI)
+                Branch = 0;
+                MemRead = 0;
+                MemWrite = 0;
+                MemtoReg = 0;
+                RegWrite = 1;
+                ALUSrc = 1;
+                ALUOp = 2'b00;
+            end
             default: begin
                 Branch = 0;
                 MemRead = 0;

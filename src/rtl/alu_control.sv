@@ -10,8 +10,12 @@ module alu_control (
             2'b00: begin // I-type immediate instructions
                 case (funct3)
                     3'b000: alu_control = 4'b0010; // ADDI
-                    3'b111: alu_control = 4'b0000; // ANDI  
+                    3'b111: alu_control = 4'b0000; // ANDI
                     3'b110: alu_control = 4'b0001; // ORI
+                    3'b100: alu_control = 4'b0100; // XORI
+                    3'b001: alu_control = 4'b0101; // SLLI
+                    3'b101: alu_control = 4'b0110; // SRLI
+                    3'b010: alu_control = 4'b0111; // SLTI
                     default: alu_control = 4'b0010; // Default to ADD for LW/SW
                 endcase
             end
@@ -22,6 +26,9 @@ module alu_control (
                     {7'b0100000, 3'b000}: alu_control = 4'b0011; // SUB
                     {7'b0000000, 3'b111}: alu_control = 4'b0000; // AND
                     {7'b0000000, 3'b110}: alu_control = 4'b0001; // OR
+                    {7'b0000000, 3'b100}: alu_control = 4'b0100; // XOR
+                    {7'b0000000, 3'b001}: alu_control = 4'b0101; // SLL
+                    {7'b0000000, 3'b101}: alu_control = 4'b0110; // SRL
                     default: alu_control = 4'b1111; // Invalid
                 endcase
             end

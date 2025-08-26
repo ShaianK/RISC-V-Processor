@@ -1,8 +1,12 @@
 typedef enum logic [3:0] {
-    ALU_AND  = 4'b0000,  // AND operation
-    ALU_OR   = 4'b0001,  // OR operation  
-    ALU_ADD  = 4'b0010,  // ADD operation
-    ALU_SUB  = 4'b0011   // SUB operation
+    ALU_AND  = 4'b0000,
+    ALU_OR   = 4'b0001,
+    ALU_ADD  = 4'b0010,
+    ALU_SUB  = 4'b0011,
+    ALU_XOR  = 4'b0100,
+    ALU_SLL  = 4'b0101,
+    ALU_SRL  = 4'b0110,
+    ALU_SLT  = 4'b0111
 } alu_op_t;
 
 module alu(
@@ -19,6 +23,10 @@ module alu(
             ALU_OR:  alu_result = data1 | data2;
             ALU_ADD: alu_result = data1 + data2;
             ALU_SUB: alu_result = data1 - data2;
+            ALU_XOR: alu_result = data1 ^ data2;
+            ALU_SLL: alu_result = data1 << data2[4:0];
+            ALU_SRL: alu_result = data1 >> data2[4:0];
+            ALU_SLT: alu_result = ($signed(data1) < $signed(data2)) ? 32'h1 : 32'h0;
             default: alu_result = '0;
         endcase
     end
