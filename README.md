@@ -1,6 +1,6 @@
 # RISC-V Processor
 
-A 32-bit pipelined RV32I processor core implementation using SystemVerilog.
+A pipelined RV32I processor core implementation using SystemVerilog.
 
 ## Features
 
