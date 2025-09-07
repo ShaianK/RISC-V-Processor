@@ -34,6 +34,10 @@ class alu_scoreboard extends uvm_scoreboard;
             1: expected = curr_trans.data1 | curr_trans.data2;
             2: expected = curr_trans.data1 + curr_trans.data2;
             3: expected = curr_trans.data1 - curr_trans.data2;
+            4: expected = curr_trans.data1 ^ curr_trans.data2;
+            5: expected = curr_trans.data1 << curr_trans.data2;
+            6: expected = curr_trans.data1 >> curr_trans.data2;
+            7: expected = ($signed(curr_trans.data1) < $signed(curr_trans.data2)) ? 32'h1 : 32'h0;
         endcase
 
         actual = curr_trans.alu_result;
@@ -42,9 +46,8 @@ class alu_scoreboard extends uvm_scoreboard;
             `uvm_error("COMPARE", $sformatf("Transaction failed! ACT=%d, EXP=%d", actual, expected))
         end
         else begin
-            `uvm_error("COMPARE", $sformatf("Transaction passed! ACT=%d, EXP=%d", actual, expected), UVM_LOW)
+            `uvm_info("COMPARE", $sformatf("Transaction passed! ACT=%d, EXP=%d", actual, expected), UVM_LOW)
         end
-
     endtask: compare
 
     // Task since it can consume time
@@ -58,7 +61,6 @@ class alu_scoreboard extends uvm_scoreboard;
             curr_trans = transactions.pop_front();
             compare(curr_trans);
         end
-
     endtask: run_phase
 
 endclass: alu_scoreboard
