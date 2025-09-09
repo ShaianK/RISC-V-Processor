@@ -13,33 +13,32 @@ module alu_control_tb;
         .alu_control(alu_control)
     );
 
+    task test_alu_control(
+        input [1:0] test_aluop,
+        input [6:0] test_funct7,
+        input [2:0] test_funct3,
+        input string desc
+    );
+        begin
+            aluop = test_aluop;
+            funct7 = test_funct7;
+            funct3 = test_funct3;
+            #10;
+            $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | %s", 
+                     $time, aluop, funct7, funct3, alu_control, desc);
+        end
+    endtask
+
     initial begin
         $dumpfile("alu_control_tb.vcd");
         $dumpvars(0, dut);
         
-        // lw/sw (add)
-        aluop = 2'b00; funct7 = 7'bxxxxxxx; funct3 = 3'bxxx; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | ADD (lw/sw)", $time, aluop, funct7, funct3, alu_control);
-        
-        // beq (sub)
-        aluop = 2'b01; funct7 = 7'bxxxxxxx; funct3 = 3'bxxx; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | SUB (beq)", $time, aluop, funct7, funct3, alu_control);
-        
-        // R-type add
-        aluop = 2'b10; funct7 = 7'b0000000; funct3 = 3'b000; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | ADD (R-type)", $time, aluop, funct7, funct3, alu_control);
-        
-        // R-type sub
-        aluop = 2'b10; funct7 = 7'b0100000; funct3 = 3'b000; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | SUB (R-type)", $time, aluop, funct7, funct3, alu_control);
-        
-        // R-type and
-        aluop = 2'b10; funct7 = 7'b0000000; funct3 = 3'b111; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | AND (R-type)", $time, aluop, funct7, funct3, alu_control);
-        
-        // R-type or
-        aluop = 2'b10; funct7 = 7'b0000000; funct3 = 3'b110; #10;
-        $display("%0t | aluop=%b | funct7=%b | funct3=%b | alu_control=%b | OR (R-type)", $time, aluop, funct7, funct3, alu_control);
+        test_alu_control(2'b00, 7'bxxxxxxx, 3'bxxx, "ADD (lw/sw)");
+        test_alu_control(2'b01, 7'bxxxxxxx, 3'bxxx, "SUB (beq)");
+        test_alu_control(2'b10, 7'b0000000, 3'b000, "ADD (R-type)");
+        test_alu_control(2'b10, 7'b0100000, 3'b000, "SUB (R-type)");
+        test_alu_control(2'b10, 7'b0000000, 3'b111, "AND (R-type)");
+        test_alu_control(2'b10, 7'b0000000, 3'b110, "OR (R-type)");
         
         $finish;
     end
