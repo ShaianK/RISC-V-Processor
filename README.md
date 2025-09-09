@@ -94,7 +94,6 @@ add x4, x3, x3
 ## Todo
 
 - Implement remaining instructions
-- Clean up code (use more parameters instead of hardcoded values)
 
 ## Resources
 
