@@ -5,14 +5,14 @@ A pipelined RV32I processor core implementation using SystemVerilog.
 ## Features
 
 - 5-Stage Pipeline Architecture (IF, ID, EX, MEM, WB)
-- Hazard Handling with forwarding, flushing, and stalls
+- Hazard Resolution with forwarding, flushing, and stalls
 - Verification with Verilog and UVM testbenches
 
 ## Architecture Overview
 
 ### Pipeline Stages
 
-1. Instruction Fetch (IF): PC and instruction memory
+1. Instruction Fetch (IF): Program counter and instruction memory
 2. Instruction Decode (ID): Register file, control signals, immediate generation
 3. Execute (EX): ALU operations and branch condition checking
 4. Memory (MEM): Data memory access for load/store operations
@@ -23,14 +23,6 @@ A pipelined RV32I processor core implementation using SystemVerilog.
 - **Data Hazards**: Forwarding unit with EX-stage bypass paths and external ID-stage forwarding for register dependencies
 - **Load-Use Hazards**: Hazard detection unit triggers pipeline stalls when forwarding cannot resolve dependencies
 - **Control Hazards**: Pipeline flushing on branch
-
-## Verification
-
-- Verilog Testbenches: 
-    - Individual module testing
-    - Full CPU testing
-- UVM Testbench for ALU verification 
-- Simulations were ran through AMD Vivado and Synopsis VCS (EDA Playground). Earlier in the project I used Icarus Verilog and GTKWave.
 
 ## Supported Instructions
 
@@ -62,6 +54,14 @@ Currently implements a subset of RV32I instructions:
 
 ### U-Type Instructions
 - `LUI` - Load upper immediate
+
+## Verification
+
+- Verilog Testbenches: 
+    - Individual module testing
+    - Full CPU testing
+- UVM Testbench for ALU verification 
+- Simulations were ran through AMD Vivado and Synopsis VCS (EDA Playground). Earlier in the project I used Icarus Verilog and GTKWave.
 
 ## Simulation Examples
 
